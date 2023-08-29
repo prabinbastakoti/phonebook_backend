@@ -1,8 +1,14 @@
 const express = require("express");
+const morgan = require("morgan");
 
 const app = express();
 
 app.use(express.json());
+
+morgan.token("body", function (req) {
+  const object = JSON.stringify(req.body);
+  return object;
+});
 
 let persons = [
   {
@@ -27,11 +33,11 @@ let persons = [
   },
 ];
 
-app.get("/api/persons", (request, response) => {
+app.get("/api/persons", morgan("tiny"), (request, response) => {
   response.json(persons);
 });
 
-app.get("/info", (request, response) => {
+app.get("/info", morgan("tiny"), (request, response) => {
   const length = persons.length;
   const currentTime = new Date();
   return response.send(
@@ -40,7 +46,7 @@ app.get("/info", (request, response) => {
   );
 });
 
-app.get("/api/persons/:id", (request, response) => {
+app.get("/api/persons/:id", morgan("tiny"), (request, response) => {
   const id = Number(request.params.id);
   const person = persons.find((person) => person.id === id);
 
@@ -51,30 +57,34 @@ app.get("/api/persons/:id", (request, response) => {
   }
 });
 
-app.delete("/api/persons/:id", (request, response) => {
+app.delete("/api/persons/:id", morgan("tiny"), (request, response) => {
   const id = Number(request.params.id);
   persons = persons.filter((person) => person.id !== id);
   response.status(204).end();
 });
 
-app.post("/api/persons", (request, response) => {
-  const person = request.body;
-  const id = Math.floor(Math.random() * 100000);
+app.post(
+  "/api/persons",
+  morgan(":method :url :status :res[content-length] - :response-time ms :body"),
+  (request, response) => {
+    const person = request.body;
+    const id = Math.floor(Math.random() * 100000);
 
-  const exist = persons.find((item) => item.name === person.name);
+    const exist = persons.find((item) => item.name === person.name);
 
-  if (!person.name || !person.number) {
-    return response
-      .status(400)
-      .json({ error: "name or number is not provided" });
+    if (!person.name || !person.number) {
+      return response
+        .status(400)
+        .json({ error: "name or number is not provided" });
+    }
+    if (exist) {
+      return response.status(400).json({ error: "name must be unique" });
+    }
+    person.id = id;
+    persons = persons.concat(person);
+    response.json(persons);
   }
-  if (exist) {
-    return response.status(400).json({ error: "name must be unique" });
-  }
-  person.id = id;
-  persons = persons.concat(person);
-  response.json(persons);
-});
+);
 
 const PORT = 3001;
 
