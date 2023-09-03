@@ -30,14 +30,25 @@ app.get("/info", morgan("tiny"), (request, response) => {
   });
 });
 
-app.get("/api/persons/:id", morgan("tiny"), (request, response) => {
-  person.findById(request.params.id).then((data) => response.json(data));
+app.get("/api/persons/:id", morgan("tiny"), (request, response, next) => {
+  person
+    .findById(request.params.id)
+    .then((data) => {
+      if (data) {
+        response.json(data);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", morgan("tiny"), (request, response) => {
-  const id = Number(request.params.id);
-  persons = persons.filter((person) => person.id !== id);
-  response.status(204).end();
+app.delete("/api/persons/:id", morgan("tiny"), (request, response, next) => {
+  const id = request.params.id;
+  person
+    .findByIdAndRemove(id)
+    .then((result) => response.status(204).end())
+    .catch((error) => next(error));
 });
 
 app.post(
@@ -63,6 +74,30 @@ app.post(
     });
   }
 );
+
+app.put("/api/persons/:id", morgan("tiny"), (request, response, next) => {
+  const id = request.params.id;
+  const body = request.body;
+
+  const people = {
+    name: body.name,
+    number: body.number,
+  };
+
+  person
+    .findByIdAndUpdate(id, people, { new: true })
+    .then((updatedPeople) => response.json(updatedPeople))
+    .catch((error) => next(error));
+});
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 
